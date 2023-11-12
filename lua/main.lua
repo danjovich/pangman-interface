@@ -1,11 +1,24 @@
-ball = require "ball"
-map = require "map"
+ball = require("ball")
+map = require("map")
+
+serial = require("serial")
+
+local baudRate = 9600
+local dataBits = 8
+local stopBits = 1
+local parity = 0
+local portName = '/dev/ttyUSB0'
+
+local fd = io.open(portName, 'r+')
+
 
 playerA = {
     width = 10,
-    height = 80,
-    y = 200,
-    x = 40,
+    -- height = 80,
+    height = map.height,
+    -- y = 200,
+    y = 20,
+    x = 580,
     score = 0
 }
 
@@ -13,7 +26,7 @@ playerB = {
     width = 10,
     height = 80,
     y = 200,
-    x = 580,
+    x = 40,
     score = 0
 }
 
@@ -55,12 +68,12 @@ function love.update()
     end
 
     -- keys testing
-    if love.keyboard.isDown("up") and playerA.y > map.offset then
-        playerA.y = playerA.y - 2
-    end
-    if love.keyboard.isDown("down") and playerA.y + playerA.height < map.height + map.offset then
-        playerA.y = playerA.y + 2
-    end
+    -- if love.keyboard.isDown("up") and playerA.y > map.offset then
+    --     playerA.y = playerA.y - 2
+    -- end
+    -- if love.keyboard.isDown("down") and playerA.y + playerA.height < map.height + map.offset then
+    --     playerA.y = playerA.y + 2
+    -- end
     if love.keyboard.isDown("w") and playerB.y > map.offset then
         playerB.y = playerB.y - 2
     end
