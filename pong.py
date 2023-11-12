@@ -135,12 +135,12 @@ def draw(canvas: pygame.Surface):
         ball_init(False)
 
     # update scores
-    my_font1 = pygame.font.SysFont("Comic Sans MS", 20)
-    label1 = my_font1.render("Score " + str(l_score), 1, (255, 255, 0))
+    my_font1 = pygame.font.SysFont("mono", 20, True)
+    label1 = my_font1.render("Score " + str(l_score), 1, WHITE)
     canvas.blit(label1, (50, 20))
 
-    my_font2 = pygame.font.SysFont("Comic Sans MS", 20)
-    label2 = my_font2.render("Score " + str(r_score), 1, (255, 255, 0))
+    my_font2 = pygame.font.SysFont("mono", 20, True)
+    label2 = my_font2.render("Score " + str(r_score), 1, WHITE)
     canvas.blit(label2, (470, 20))
 
 
