@@ -1,7 +1,29 @@
-# PONG pygame
-
+import time
 import pygame, sys
-from pygame.locals import *
+import pygame.locals as pg_locals
+
+import serial
+
+SERIAL_PORT = "/dev/ttyACM0"
+BAUD_RATE = 9600
+BYTE_SIZE = 8
+PARITY = "N"
+STOP_BITS = 1
+
+ser = serial.Serial(
+    SERIAL_PORT,
+    BAUD_RATE,
+    BYTE_SIZE,
+    PARITY,
+    STOP_BITS,
+)  # open serial port
+print(ser.name)  # check which port was really used
+time.sleep(3)
+ser.write(b"Win")  # write a string
+
+print(str(ser.read(3)))
+
+ser.close()  # close port
 
 pygame.init()
 fps = pygame.time.Clock()
@@ -22,7 +44,7 @@ HALF_PAD_WIDTH = PAD_WIDTH // 2
 HALF_PAD_HEIGHT = PAD_HEIGHT // 2
 BALL_VEL_HORIZONTAL = 4
 BALL_VEL_VERTICAL = 4
-ball_pos = [0, 0]
+ball_pos = [0.0, 0.0]
 ball_vel = [BALL_VEL_HORIZONTAL, BALL_VEL_VERTICAL]
 paddle1_vel = 0
 paddle2_vel = 0
@@ -51,7 +73,7 @@ def init():
 
 
 # draw function of canvas
-def draw(canvas: pygame.Surface):
+def draw(canvas: pygame.surface.Surface):
     global paddle1_pos, paddle2_pos, ball_pos, ball_vel, letter_ascii
 
     canvas.fill(BLACK)
@@ -72,8 +94,8 @@ def draw(canvas: pygame.Surface):
         paddle2_pos[1] += paddle2_vel
 
     # update ball
-    ball_pos[0] += int(ball_vel[0])
-    ball_pos[1] += int(ball_vel[1])
+    ball_pos[0] += ball_vel[0]
+    ball_pos[1] += ball_vel[1]
 
     # draw paddles and ball
     rect = pygame.Rect(ball_pos[0], ball_pos[1], BALL_DIAMETER, BALL_DIAMETER)
@@ -125,7 +147,7 @@ def draw(canvas: pygame.Surface):
 
     # current letter
     font = pygame.font.SysFont("mono", 20, True)
-    label1 = font.render("Letter " + chr(letter_ascii), 1, WHITE)
+    label1 = font.render("Letter " + chr(letter_ascii), True, WHITE)
     canvas.blit(label1, (50, 20))
 
 
@@ -138,9 +160,9 @@ def keydown(event: pygame.event.Event):
     # elif event.key == K_DOWN:
     #     paddle2_vel = 8
     # elif event.key == K_w:
-    if event.key == K_w:
+    if event.key == pg_locals.K_w:
         paddle1_vel = -8
-    elif event.key == K_s:
+    elif event.key == pg_locals.K_s:
         paddle1_vel = 8
 
 
@@ -148,9 +170,9 @@ def keydown(event: pygame.event.Event):
 def keyup(event: pygame.event.Event):
     global paddle1_vel, paddle2_vel
 
-    if event.key in (K_w, K_s):
+    if event.key in (pg_locals.K_w, pg_locals.K_s):
         paddle1_vel = 0
-    elif event.key in (K_UP, K_DOWN):
+    elif event.key in (pg_locals.K_UP, pg_locals.K_DOWN):
         paddle2_vel = 0
 
 
@@ -162,11 +184,11 @@ while True:
     draw(window)
 
     for event in pygame.event.get():
-        if event.type == KEYDOWN:
+        if event.type == pg_locals.KEYDOWN:
             keydown(event)
-        elif event.type == KEYUP:
+        elif event.type == pg_locals.KEYUP:
             keyup(event)
-        elif event.type == QUIT:
+        elif event.type == pg_locals.QUIT:
             pygame.quit()
             sys.exit()
 
