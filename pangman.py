@@ -1,6 +1,5 @@
-import time
 import pygame, sys
-import pygame.locals as pg_locals
+import pygame.locals as pygame_locals
 
 import serial
 
@@ -18,10 +17,6 @@ ser = serial.Serial(
     STOP_BITS,
 )  # open serial port
 print(ser.name)  # check which port was really used
-# time.sleep(3)
-# ser.write(b"Win")  # write a string
-
-# print(str(ser.read(3)))
 
 # ser.close()  # close port
 
@@ -83,21 +78,6 @@ def draw(canvas: pygame.surface.Surface):
 
     canvas.fill(BLACK)
 
-    # update paddle's vertical position, keep paddle on the screen
-    # if paddle1_pos[1] > HALF_PAD_HEIGHT and paddle1_pos[1] < HEIGHT - HALF_PAD_HEIGHT:
-    #     paddle1_pos[1] += paddle1_vel
-    # elif paddle1_pos[1] == HALF_PAD_HEIGHT and paddle1_vel > 0:
-    #     paddle1_pos[1] += paddle1_vel
-    # elif paddle1_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle1_vel < 0:
-    #     paddle1_pos[1] += paddle1_vel
-
-    # if paddle2_pos[1] > HALF_PAD_HEIGHT and paddle2_pos[1] < HEIGHT - HALF_PAD_HEIGHT:
-    #     paddle2_pos[1] += paddle2_vel
-    # elif paddle2_pos[1] == HALF_PAD_HEIGHT and paddle2_vel > 0:
-    #     paddle2_pos[1] += paddle2_vel
-    # elif paddle2_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle2_vel < 0:
-    #     paddle2_pos[1] += paddle2_vel
-
     # receive serial measure
     meas = ser.read(8).decode()
     angle = int(meas.split(",")[0])
@@ -106,18 +86,20 @@ def draw(canvas: pygame.surface.Surface):
     distance = min(distance, MAX_DIST)
     distance = max(distance, MIN_DIST)
 
-    # update position
-    paddle1_pos[1] = max((HEIGHT - HALF_PAD_HEIGHT) - (((HEIGHT - HALF_PAD_HEIGHT) / DIST_DIFF) * (distance - MIN_DIST)), HALF_PAD_HEIGHT)
+    # update paddle position
+    paddle1_pos[1] = max(
+        (HEIGHT - HALF_PAD_HEIGHT)
+        - (((HEIGHT - HALF_PAD_HEIGHT) / DIST_DIFF) * (distance - MIN_DIST)),
+        HALF_PAD_HEIGHT,
+    )
     print(paddle1_pos[1])
 
-
     # update ball
-    ball_pos[0] = (WIDTH - BALL_DIAMETER - PAD_WIDTH) - ((WIDTH - BALL_DIAMETER - PAD_WIDTH) / (MAX_ANGLE - MIN_ANGLE)) * (angle - MIN_ANGLE)
+    ball_pos[0] = (WIDTH - BALL_DIAMETER - PAD_WIDTH) - (
+        (WIDTH - BALL_DIAMETER - PAD_WIDTH) / (MAX_ANGLE - MIN_ANGLE)
+    ) * (angle - MIN_ANGLE)
     ball_pos[1] += ball_vel[1]
     print(meas)
-    # print(ball_pos)
-    # ball_pos[0] += ball_vel[0]
-    # ball_pos[1] += ball_vel[1]
 
     # draw paddles and ball
     rect = pygame.Rect(ball_pos[0], ball_pos[1], BALL_DIAMETER, BALL_DIAMETER)
@@ -181,9 +163,9 @@ def keydown(event: pygame.event.Event):
     # elif event.key == K_DOWN:
     #     paddle2_vel = 8
     # elif event.key == K_w:
-    if event.key == pg_locals.K_w:
+    if event.key == pygame_locals.K_w:
         paddle1_vel = -8
-    elif event.key == pg_locals.K_s:
+    elif event.key == pygame_locals.K_s:
         paddle1_vel = 8
 
 
@@ -191,25 +173,27 @@ def keydown(event: pygame.event.Event):
 def keyup(event: pygame.event.Event):
     global paddle1_vel, paddle2_vel
 
-    if event.key in (pg_locals.K_w, pg_locals.K_s):
-        paddle1_vel = 0
-    elif event.key in (pg_locals.K_UP, pg_locals.K_DOWN):
-        paddle2_vel = 0
+    # if event.key in (pygame_locals.K_w, pygame_locals.K_s):
+    #     paddle1_vel = 0
+    # elif event.key in (pygame_locals.K_UP, pygame_locals.K_DOWN):
+    #     paddle2_vel = 0
+    if event.key == pygame_locals.K_q:
+        pygame.event.post(pygame.event.Event(pygame_locals.QUIT))
 
 
 init()
-
 
 # game loop
 while True:
     draw(window)
 
     for event in pygame.event.get():
-        if event.type == pg_locals.KEYDOWN:
+        if event.type == pygame_locals.KEYDOWN:
             keydown(event)
-        elif event.type == pg_locals.KEYUP:
+        elif event.type == pygame_locals.KEYUP:
             keyup(event)
-        elif event.type == pg_locals.QUIT:
+        elif event.type == pygame_locals.QUIT:
+            ser.close()
             pygame.quit()
             sys.exit()
 
