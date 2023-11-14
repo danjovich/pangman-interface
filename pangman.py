@@ -4,10 +4,10 @@ import pygame.locals as pg_locals
 
 import serial
 
-SERIAL_PORT = "/dev/ttyACM0"
-BAUD_RATE = 9600
-BYTE_SIZE = 8
-PARITY = "N"
+SERIAL_PORT = "COM18"
+BAUD_RATE = 115200
+BYTE_SIZE = 7
+PARITY = "O"
 STOP_BITS = 1
 
 ser = serial.Serial(
@@ -18,12 +18,12 @@ ser = serial.Serial(
     STOP_BITS,
 )  # open serial port
 print(ser.name)  # check which port was really used
-time.sleep(3)
-ser.write(b"Win")  # write a string
+# time.sleep(3)
+# ser.write(b"Win")  # write a string
 
-print(str(ser.read(3)))
+# print(str(ser.read(3)))
 
-ser.close()  # close port
+# ser.close()  # close port
 
 pygame.init()
 fps = pygame.time.Clock()
@@ -48,6 +48,11 @@ ball_pos = [0.0, 0.0]
 ball_vel = [BALL_VEL_HORIZONTAL, BALL_VEL_VERTICAL]
 paddle1_vel = 0
 paddle2_vel = 0
+MAX_ANGLE = 160
+MIN_ANGLE = 20
+MAX_DIST = 50
+MIN_DIST = 10
+DIST_DIFF = MAX_DIST - MIN_DIST
 
 letter_ascii = ord("A")
 
@@ -74,28 +79,45 @@ def init():
 
 # draw function of canvas
 def draw(canvas: pygame.surface.Surface):
-    global paddle1_pos, paddle2_pos, ball_pos, ball_vel, letter_ascii
+    global paddle1_pos, paddle2_pos, ball_pos, ball_vel, letter_ascii, ser
 
     canvas.fill(BLACK)
 
     # update paddle's vertical position, keep paddle on the screen
-    if paddle1_pos[1] > HALF_PAD_HEIGHT and paddle1_pos[1] < HEIGHT - HALF_PAD_HEIGHT:
-        paddle1_pos[1] += paddle1_vel
-    elif paddle1_pos[1] == HALF_PAD_HEIGHT and paddle1_vel > 0:
-        paddle1_pos[1] += paddle1_vel
-    elif paddle1_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle1_vel < 0:
-        paddle1_pos[1] += paddle1_vel
+    # if paddle1_pos[1] > HALF_PAD_HEIGHT and paddle1_pos[1] < HEIGHT - HALF_PAD_HEIGHT:
+    #     paddle1_pos[1] += paddle1_vel
+    # elif paddle1_pos[1] == HALF_PAD_HEIGHT and paddle1_vel > 0:
+    #     paddle1_pos[1] += paddle1_vel
+    # elif paddle1_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle1_vel < 0:
+    #     paddle1_pos[1] += paddle1_vel
 
-    if paddle2_pos[1] > HALF_PAD_HEIGHT and paddle2_pos[1] < HEIGHT - HALF_PAD_HEIGHT:
-        paddle2_pos[1] += paddle2_vel
-    elif paddle2_pos[1] == HALF_PAD_HEIGHT and paddle2_vel > 0:
-        paddle2_pos[1] += paddle2_vel
-    elif paddle2_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle2_vel < 0:
-        paddle2_pos[1] += paddle2_vel
+    # if paddle2_pos[1] > HALF_PAD_HEIGHT and paddle2_pos[1] < HEIGHT - HALF_PAD_HEIGHT:
+    #     paddle2_pos[1] += paddle2_vel
+    # elif paddle2_pos[1] == HALF_PAD_HEIGHT and paddle2_vel > 0:
+    #     paddle2_pos[1] += paddle2_vel
+    # elif paddle2_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle2_vel < 0:
+    #     paddle2_pos[1] += paddle2_vel
+
+    # receive serial measure
+    meas = ser.read(8).decode()
+    angle = int(meas.split(",")[0])
+    distance = int(meas.split(",")[1].replace("#", ""))
+
+    distance = min(distance, MAX_DIST)
+    distance = max(distance, MIN_DIST)
+
+    # update position
+    paddle1_pos[1] = max((HEIGHT - HALF_PAD_HEIGHT) - (((HEIGHT - HALF_PAD_HEIGHT) / DIST_DIFF) * (distance - MIN_DIST)), HALF_PAD_HEIGHT)
+    print(paddle1_pos[1])
+
 
     # update ball
-    ball_pos[0] += ball_vel[0]
+    ball_pos[0] = (WIDTH - BALL_DIAMETER - PAD_WIDTH) - ((WIDTH - BALL_DIAMETER - PAD_WIDTH) / (MAX_ANGLE - MIN_ANGLE)) * (angle - MIN_ANGLE)
     ball_pos[1] += ball_vel[1]
+    print(meas)
+    # print(ball_pos)
+    # ball_pos[0] += ball_vel[0]
+    # ball_pos[1] += ball_vel[1]
 
     # draw paddles and ball
     rect = pygame.Rect(ball_pos[0], ball_pos[1], BALL_DIAMETER, BALL_DIAMETER)
@@ -139,7 +161,6 @@ def draw(canvas: pygame.surface.Surface):
             letter_ascii += 1
     elif ball_pos[0] <= PAD_WIDTH:
         ball_init()
-        print(chr(letter_ascii))
         letter_ascii = ord("A")
 
     if ball_pos[0] == WIDTH - BALL_DIAMETER - PAD_WIDTH:
