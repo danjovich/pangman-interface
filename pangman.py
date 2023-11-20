@@ -1,5 +1,3 @@
-from pickle import TRUE
-from telnetlib import WONT
 import pygame, sys
 import pygame.locals as pygame_locals
 
