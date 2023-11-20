@@ -95,7 +95,7 @@ letter_ascii = ord("A")
 
 # canvas declaration
 window = pygame.display.set_mode((PONG_WIDTH + HANGMAN_WIDTH, HEIGHT), 0, 32)
-pygame.display.set_caption("Pong")
+pygame.display.set_caption("PangMan")
 
 
 # helper function that spawns a ball, returns a position vector and a velocity vector

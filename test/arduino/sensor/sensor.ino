@@ -55,5 +55,6 @@ void updateAngle() {
     angle -= 20;
   }
 
-  increaseAngle = (increaseAngle && angle < 160) || (!increaseAngle && angle == 20);
+  increaseAngle =
+      (increaseAngle && angle < 160) || (!increaseAngle && angle == 20);
 }
