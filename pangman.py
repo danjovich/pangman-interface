@@ -1,14 +1,15 @@
+import math
 import pygame, sys
 import pygame.locals as pygame_locals
 
 import serial
 
-# SERIAL_PORT = "COM18"
-SERIAL_PORT = "/dev/ttyACM0"
+SERIAL_PORT = "COM18"
+# SERIAL_PORT = "/dev/ttyACM0"
 BAUD_RATE = 115200
 BYTE_SIZE = 7
-# PARITY = "O"
-PARITY = "N"
+PARITY = "O"
+# PARITY = "N"
 STOP_BITS = 1
 
 ser = serial.Serial(
@@ -17,6 +18,7 @@ ser = serial.Serial(
     BYTE_SIZE,
     PARITY,
     STOP_BITS,
+    timeout=2
 )  # open serial port
 print(ser.name)  # check which port was really used
 
@@ -36,11 +38,11 @@ PONG_WIDTH = 600
 HEIGHT = 400
 BALL_DIAMETER = 20
 PAD_WIDTH = 8
-PAD_HEIGHT = 80
+PAD_HEIGHT = 100
 HALF_PAD_WIDTH = PAD_WIDTH // 2
 HALF_PAD_HEIGHT = PAD_HEIGHT // 2
 BALL_VEL_HORIZONTAL = 4
-BALL_VEL_VERTICAL = 4
+BALL_VEL_VERTICAL = 20
 ball_pos = [0.0, 0.0]
 ball_vel = [BALL_VEL_HORIZONTAL, BALL_VEL_VERTICAL]
 paddle1_vel = 0
@@ -60,14 +62,20 @@ class Word:
     def __init__(self, word: str):
         self.actual_word = word.upper()
         self.shown_word = self.actual_word
-        self.guessed_letters = []
+        self.guessed_letters: list[str] = []
         self.refresh_shown_word()
+        self.game_over = False
 
     def refresh_shown_word(self):
         self.shown_word = self.actual_word
         for letter in self.actual_word:
             if letter not in self.guessed_letters:
                 self.shown_word = self.shown_word.replace(letter, "-")
+
+        if self.shown_word == self.actual_word:
+            # won
+            ser.write(b'g')
+            self.game_over = True
 
     def guess_letter(self, letter: str) -> bool:
         if len(letter) != 1:
@@ -84,8 +92,8 @@ class Word:
 
         return False
 
-
-word = Word("LABDIG")
+curr_word = "LABDIG"
+word = Word(curr_word)
 score = 6
 
 
@@ -125,7 +133,7 @@ def draw_pong(canvas: pygame.surface.Surface):
     try:
         angle = int(meas.split(",")[0])
         distance = int(meas.split(",")[1].replace("#", ""))
-    except ValueError:
+    except:
         return
 
     distance = min(distance, MAX_DIST)
@@ -143,6 +151,10 @@ def draw_pong(canvas: pygame.surface.Surface):
         (PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH) / (MAX_ANGLE - MIN_ANGLE)
     ) * (angle - MIN_ANGLE)
     ball_pos[1] += ball_vel[1]
+
+    position_to_write = math.trunc(int(ball_pos[1]) / PAD_HEIGHT)
+    print(str(position_to_write).encode('ascii'))
+    ser.write(str(position_to_write).encode('ascii'))
 
     # draw paddles and ball
     rect = pygame.Rect(ball_pos[0], ball_pos[1], BALL_DIAMETER, BALL_DIAMETER)
@@ -184,6 +196,7 @@ def draw_pong(canvas: pygame.surface.Surface):
             letter_ascii = ord("A")
         else:
             letter_ascii += 1
+        
     elif ball_pos[0] <= PAD_WIDTH:
         ball_init()
 
@@ -195,6 +208,9 @@ def draw_pong(canvas: pygame.surface.Surface):
 
     if ball_pos[0] == PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH:
         ball_vel[0] = -ball_vel[0]
+
+    while chr(letter_ascii) in word.guessed_letters:
+        letter_ascii += 1
 
     # current letter
     font = pygame.font.SysFont("mono", 20, True)
@@ -255,26 +271,35 @@ def draw_hangman(canvas: pygame.surface.Surface):
         pygame.draw.line(
             canvas, WHITE, [PONG_WIDTH + 150, 275], [PONG_WIDTH + 165, 310], LINES_WIDTH
         )
+        # lost
+        ser.write(b'p')
 
     font = pygame.font.SysFont("mono", 20, True)
 
     label_letters = font.render(word.shown_word, True, WHITE)
-    canvas.blit(label_letters, (PONG_WIDTH + 400, 175))
+    canvas.blit(label_letters, (PONG_WIDTH + 250, 175))
 
-    label_letters = font.render(" ".join(word.guessed_letters), True, WHITE)
-    canvas.blit(label_letters, (PONG_WIDTH + 400, 225))
+    for i, letter in enumerate(word.guessed_letters):
+        if word.actual_word.count(letter) > 0:
+            color = GREEN
+        else:
+            color = RED
+
+        label_letter = font.render(letter, True, color)
+        canvas.blit(label_letter, (PONG_WIDTH + 250 + (20 * i), 225))
 
 
 # keydown handler
 def keydown(event: pygame.event.Event):
-    global paddle1_vel, paddle2_vel
+    global paddle1_vel, paddle2_vel, word
 
-    # if event.key == K_UP:
-    #     paddle2_vel = -8
-    # elif event.key == K_DOWN:
-    #     paddle2_vel = 8
-    # elif event.key == K_w:
-    if event.key == pygame_locals.K_w:
+    if event.key == pygame_locals.K_i:
+        ser.write(b"i")
+    elif event.key == pygame_locals.K_r:
+        ser.write(b"r")
+        if word.game_over:
+            word = Word(curr_word)
+    elif event.key == pygame_locals.K_w:
         paddle1_vel = -8
     elif event.key == pygame_locals.K_s:
         paddle1_vel = 8
