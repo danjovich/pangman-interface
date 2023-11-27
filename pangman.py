@@ -13,12 +13,7 @@ PARITY = "O"
 STOP_BITS = 1
 
 ser = serial.Serial(
-    SERIAL_PORT,
-    BAUD_RATE,
-    BYTE_SIZE,
-    PARITY,
-    STOP_BITS,
-    timeout=2
+    SERIAL_PORT, BAUD_RATE, BYTE_SIZE, PARITY, STOP_BITS, timeout=2
 )  # open serial port
 print(ser.name)  # check which port was really used
 
@@ -52,6 +47,7 @@ MIN_ANGLE = 20
 MAX_DIST = 50
 MIN_DIST = 10
 DIST_DIFF = MAX_DIST - MIN_DIST
+software_only_mode = False
 
 # globals - hangman
 HANGMAN_WIDTH = 600
@@ -74,7 +70,7 @@ class Word:
 
         if self.shown_word == self.actual_word:
             # won
-            ser.write(b'g')
+            ser.write(b"g")
             self.game_over = True
 
     def guess_letter(self, letter: str) -> bool:
@@ -91,6 +87,7 @@ class Word:
             return True
 
         return False
+
 
 curr_word = "LABDIG"
 word = Word(curr_word)
@@ -122,39 +119,56 @@ def init():
 
 # draw function of canvas
 def draw_pong(canvas: pygame.surface.Surface):
-    global paddle1_pos, paddle2_pos, ball_pos, ball_vel, letter_ascii, ser
+    global paddle1_pos, paddle2_pos, ball_pos, ball_vel, letter_ascii, ser, software_only_mode
     global word, score
 
     canvas.fill(BLACK)
 
     # receive serial measure
-    meas = ser.read(8).decode()
-    print(meas)
-    try:
-        angle = int(meas.split(",")[0])
-        distance = int(meas.split(",")[1].replace("#", ""))
-    except:
-        return
+    if not software_only_mode:
+        meas = ser.read(8).decode()
+        print(meas)
+        try:
+            angle = int(meas.split(",")[0])
+            distance = int(meas.split(",")[1].replace("#", ""))
+        except:
+            return
 
-    distance = min(distance, MAX_DIST)
-    distance = max(distance, MIN_DIST)
+        distance = min(distance, MAX_DIST)
+        distance = max(distance, MIN_DIST)
 
-    # update paddle position
-    paddle1_pos[1] = max(
-        (HEIGHT - HALF_PAD_HEIGHT)
-        - (((HEIGHT - HALF_PAD_HEIGHT) / DIST_DIFF) * (distance - MIN_DIST)),
-        HALF_PAD_HEIGHT,
-    )
+        # update paddle position
+        paddle1_pos[1] = max(
+            (HEIGHT - HALF_PAD_HEIGHT)
+            - (((HEIGHT - HALF_PAD_HEIGHT) / DIST_DIFF) * (distance - MIN_DIST)),
+            HALF_PAD_HEIGHT,
+        )
 
-    # update ball
-    ball_pos[0] = (PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH) - (
-        (PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH) / (MAX_ANGLE - MIN_ANGLE)
-    ) * (angle - MIN_ANGLE)
-    ball_pos[1] += ball_vel[1]
+        # update ball
+        ball_pos[0] = (PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH) - (
+            (PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH) / (MAX_ANGLE - MIN_ANGLE)
+        ) * (angle - MIN_ANGLE)
+        ball_pos[1] += ball_vel[1]
 
-    position_to_write = math.trunc(int(ball_pos[1]) / PAD_HEIGHT)
-    print(str(position_to_write).encode('ascii'))
-    ser.write(str(position_to_write).encode('ascii'))
+        # send position serially
+        position_to_write = math.trunc(int(ball_pos[1]) / PAD_HEIGHT)
+        print(str(position_to_write).encode("ascii"))
+        ser.write(str(position_to_write).encode("ascii"))
+    else:
+        # update paddle's vertical position, keep paddle on the screen
+        if (
+            paddle1_pos[1] > HALF_PAD_HEIGHT
+            and paddle1_pos[1] < HEIGHT - HALF_PAD_HEIGHT
+        ):
+            paddle1_pos[1] += paddle1_vel
+        elif paddle1_pos[1] == HALF_PAD_HEIGHT and paddle1_vel > 0:
+            paddle1_pos[1] += paddle1_vel
+        elif paddle1_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle1_vel < 0:
+            paddle1_pos[1] += paddle1_vel
+
+        # update ball
+        ball_pos[0] += ball_vel[0]
+        ball_pos[1] += ball_vel[1]
 
     # draw paddles and ball
     rect = pygame.Rect(ball_pos[0], ball_pos[1], BALL_DIAMETER, BALL_DIAMETER)
@@ -196,7 +210,7 @@ def draw_pong(canvas: pygame.surface.Surface):
             letter_ascii = ord("A")
         else:
             letter_ascii += 1
-        
+
     elif ball_pos[0] <= PAD_WIDTH:
         ball_init()
 
@@ -272,7 +286,7 @@ def draw_hangman(canvas: pygame.surface.Surface):
             canvas, WHITE, [PONG_WIDTH + 150, 275], [PONG_WIDTH + 165, 310], LINES_WIDTH
         )
         # lost
-        ser.write(b'p')
+        ser.write(b"p")
 
     font = pygame.font.SysFont("mono", 20, True)
 
@@ -291,7 +305,7 @@ def draw_hangman(canvas: pygame.surface.Surface):
 
 # keydown handler
 def keydown(event: pygame.event.Event):
-    global paddle1_vel, paddle2_vel, word
+    global paddle1_vel, paddle2_vel, word, software_only_mode
 
     if event.key == pygame_locals.K_i:
         ser.write(b"i")
@@ -299,6 +313,11 @@ def keydown(event: pygame.event.Event):
         ser.write(b"r")
         if word.game_over:
             word = Word(curr_word)
+        if software_only_mode:
+            software_only_mode = False
+    elif event.key == pygame_locals.K_t:
+        software_only_mode = True
+        ser.write(b"i")
     elif event.key == pygame_locals.K_w:
         paddle1_vel = -8
     elif event.key == pygame_locals.K_s:
@@ -309,11 +328,9 @@ def keydown(event: pygame.event.Event):
 def keyup(event: pygame.event.Event):
     global paddle1_vel, paddle2_vel
 
-    # if event.key in (pygame_locals.K_w, pygame_locals.K_s):
-    #     paddle1_vel = 0
-    # elif event.key in (pygame_locals.K_UP, pygame_locals.K_DOWN):
-    #     paddle2_vel = 0
-    if event.key == pygame_locals.K_q:
+    if event.key in (pygame_locals.K_w, pygame_locals.K_s):
+        paddle1_vel = 0
+    elif event.key == pygame_locals.K_q:
         pygame.event.post(pygame.event.Event(pygame_locals.QUIT))
 
 
