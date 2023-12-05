@@ -1,4 +1,6 @@
 import math
+from random import choice, randint, random
+from typing import Literal
 import pygame, sys
 import pygame.locals as pygame_locals
 
@@ -36,18 +38,20 @@ PAD_WIDTH = 8
 PAD_HEIGHT = 100
 HALF_PAD_WIDTH = PAD_WIDTH // 2
 HALF_PAD_HEIGHT = PAD_HEIGHT // 2
-BALL_VEL_HORIZONTAL = 4
-BALL_VEL_VERTICAL = 20
+BALL_VEL_HORIZONTAL = -4
+BALL_VEL_VERTICAL = 10
+BALL_VEL_VERTICAL_TWIN = lambda : choice([-5, -4, 4, 5])
 ball_pos = [0.0, 0.0]
 ball_vel = [BALL_VEL_HORIZONTAL, BALL_VEL_VERTICAL]
 paddle1_vel = 0
 paddle2_vel = 0
 MAX_ANGLE = 160
-MIN_ANGLE = 20
+MIN_ANGLE = 40
 MAX_DIST = 50
 MIN_DIST = 10
 DIST_DIFF = MAX_DIST - MIN_DIST
 software_only_mode = False
+paused_on_software_mode = False
 
 # globals - hangman
 HANGMAN_WIDTH = 600
@@ -56,11 +60,15 @@ LINES_WIDTH = 4
 
 class Word:
     def __init__(self, word: str):
+        global letter_ascii
         self.actual_word = word.upper()
         self.shown_word = self.actual_word
         self.guessed_letters: list[str] = []
         self.refresh_shown_word()
         self.game_over = False
+        self.resultado: Literal['g'] | Literal['p'] | None = None
+        letter_ascii = ord("A")
+
 
     def refresh_shown_word(self):
         self.shown_word = self.actual_word
@@ -70,8 +78,10 @@ class Word:
 
         if self.shown_word == self.actual_word:
             # won
+            self.resultado = 'g'
             ser.write(b"g")
             self.game_over = True
+
 
     def guess_letter(self, letter: str) -> bool:
         if len(letter) != 1:
@@ -88,10 +98,10 @@ class Word:
 
         return False
 
-
-curr_word = "LABDIG"
-word = Word(curr_word)
-score = 6
+INITIAL_SCORE = 6
+words = ["LABDIG", "PONG", "FORCA", "ITALO", "DANIEL"]
+word = Word(words[randint(0, len(words) - 1)])
+score = INITIAL_SCORE
 
 
 letter_ascii = ord("A")
@@ -106,6 +116,11 @@ pygame.display.set_caption("PangMan")
 def ball_init():
     global ball_pos, ball_vel  # these are vectors stored as lists
     ball_pos = [PONG_WIDTH / 2, HEIGHT / 2]
+    if software_only_mode:
+        ball_vel = [BALL_VEL_HORIZONTAL, BALL_VEL_VERTICAL_TWIN()]
+    else:
+        ball_vel = [BALL_VEL_HORIZONTAL, BALL_VEL_VERTICAL]
+
 
 
 # define event handlers
@@ -125,7 +140,7 @@ def draw_pong(canvas: pygame.surface.Surface):
     canvas.fill(BLACK)
 
     # receive serial measure
-    if not software_only_mode:
+    if not software_only_mode or word.game_over:
         meas = ser.read(8).decode()
         print(meas)
         try:
@@ -161,9 +176,9 @@ def draw_pong(canvas: pygame.surface.Surface):
             and paddle1_pos[1] < HEIGHT - HALF_PAD_HEIGHT
         ):
             paddle1_pos[1] += paddle1_vel
-        elif paddle1_pos[1] == HALF_PAD_HEIGHT and paddle1_vel > 0:
+        elif paddle1_pos[1] <= HALF_PAD_HEIGHT and paddle1_vel > 0:
             paddle1_pos[1] += paddle1_vel
-        elif paddle1_pos[1] == HEIGHT - HALF_PAD_HEIGHT and paddle1_vel < 0:
+        elif paddle1_pos[1] >= HEIGHT - HALF_PAD_HEIGHT and paddle1_vel < 0:
             paddle1_pos[1] += paddle1_vel
 
         # update ball
@@ -195,7 +210,7 @@ def draw_pong(canvas: pygame.surface.Surface):
     )
 
     # ball collision check on top and bottom walls
-    if int(ball_pos[1]) == 0:
+    if int(ball_pos[1]) <= 0:
         ball_vel[1] = -ball_vel[1]
     if int(ball_pos[1]) >= HEIGHT - BALL_DIAMETER:
         ball_vel[1] = -ball_vel[1]
@@ -220,7 +235,7 @@ def draw_pong(canvas: pygame.surface.Surface):
 
         letter_ascii = ord("A")
 
-    if ball_pos[0] == PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH:
+    if ball_pos[0] >= PONG_WIDTH - BALL_DIAMETER - PAD_WIDTH:
         ball_vel[0] = -ball_vel[0]
 
     while chr(letter_ascii) in word.guessed_letters:
@@ -287,36 +302,57 @@ def draw_hangman(canvas: pygame.surface.Surface):
         )
         # lost
         ser.write(b"p")
+        word.resultado = 'p'
+        word.game_over = True
+
 
     font = pygame.font.SysFont("mono", 20, True)
 
     label_letters = font.render(word.shown_word, True, WHITE)
     canvas.blit(label_letters, (PONG_WIDTH + 250, 175))
 
-    for i, letter in enumerate(word.guessed_letters):
-        if word.actual_word.count(letter) > 0:
-            color = GREEN
-        else:
-            color = RED
+    if not word.game_over:
+        for i, letter in enumerate(word.guessed_letters):
+            if word.actual_word.count(letter) > 0:
+                color = GREEN
+            else:
+                color = RED
 
-        label_letter = font.render(letter, True, color)
-        canvas.blit(label_letter, (PONG_WIDTH + 250 + (20 * i), 225))
+            label_letter = font.render(letter, True, color)
+            canvas.blit(label_letter, (PONG_WIDTH + 250 + (20 * i), 225))
+    else:
+        if word.resultado == "g":
+            color = GREEN
+            resultado = "Ganhou"
+        else:
+            resultado = "Perdeu"
+            color = RED
+        label_letter = font.render(resultado, True, color)
+        canvas.blit(label_letter, (PONG_WIDTH + 250, 225))
 
 
 # keydown handler
 def keydown(event: pygame.event.Event):
-    global paddle1_vel, paddle2_vel, word, software_only_mode
+    global paddle1_vel, paddle2_vel, word, software_only_mode, score, ball_vel, words, paused_on_software_mode
 
     if event.key == pygame_locals.K_i:
         ser.write(b"i")
-    elif event.key == pygame_locals.K_r:
-        ser.write(b"r")
-        if word.game_over:
-            word = Word(curr_word)
         if software_only_mode:
+            paused_on_software_mode = True
+    elif event.key == pygame_locals.K_r:
+        if not paused_on_software_mode:
+            ser.write(b"r")
+        ball_vel = [ball_vel[0], BALL_VEL_VERTICAL]
+        if word.game_over:
+            word = Word(words[randint(0, len(words) - 1)])
+            score = INITIAL_SCORE
+        if software_only_mode and not paused_on_software_mode:
             software_only_mode = False
+        else:
+            paused_on_software_mode = False
     elif event.key == pygame_locals.K_t:
         software_only_mode = True
+        ball_vel = [ball_vel[0], BALL_VEL_VERTICAL_TWIN()]
         ser.write(b"i")
     elif event.key == pygame_locals.K_w:
         paddle1_vel = -8
@@ -338,8 +374,9 @@ init()
 
 # game loop
 while True:
-    draw_pong(window)
-    draw_hangman(window)
+    if not paused_on_software_mode:
+        draw_pong(window)
+        draw_hangman(window)
 
     for event in pygame.event.get():
         if event.type == pygame_locals.KEYDOWN:
